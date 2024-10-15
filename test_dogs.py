@@ -56,6 +56,7 @@ class YaUploader:
         :param path: Путь для сохранения файла.
         :param url_file: URL файла для загрузки.
         :param name: Имя файла.
+        :return: True, если файл успешно загружен, иначе False.
         """
         url = "https://cloud-api.yandex.net/v1/disk/resources/upload"
         params = {"path": f'/{path}/{name}', 'url': url_file, "overwrite": "true"}
@@ -63,8 +64,10 @@ class YaUploader:
             resp = requests.post(url, headers=self.headers, params=params, timeout=10)
             resp.raise_for_status()
             logging.info("File '%s' uploaded successfully.", name)
+            return True
         except RequestException as e:
             logging.error("Error uploading file '%s': %s", name, e)
+            return False
 
 
 def get_sub_breeds(breed):
@@ -115,7 +118,7 @@ def get_urls(breed, sub_breeds):
         return []
 
 
-def u(breed, folder_name):
+def upload_dog_images(breed, folder_name):
     """
     Основная функция для загрузки изображений породы на Яндекс.Диск.
 
@@ -146,7 +149,7 @@ def test_proverka_upload_dog(breed):
 
     :param breed: Имя породы.
     """
-    u(breed, "test_folder")
+    upload_dog_images(breed, "test_folder")
 
     url_create = 'https://cloud-api.yandex.net/v1/disk/resources'
     headers = {
