@@ -1,5 +1,15 @@
 # dog-image-uploader
 
+## Результаты Pylint
+
+(.venv) C:\Users\a.panteleev\Documents\GitHub\dog-image-uploader>pylint test_dogs.py
+
+Your code has been rated at 10.00/10 (previous run: 9.88/10, +0.12)
+
+---
+
+
+
 ### 1. **Отсутствие обработки ошибок при HTTP-запросах (Критичность: Высокая)**
 
 * Проблема: Если сетевой запрос не удался (например, сервер недоступен или вернулся неуспешный статус-код), это может привести к неожиданному завершению программы.
