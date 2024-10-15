@@ -1,15 +1,30 @@
+"""
+Модуль для загрузки изображений собак на Яндекс.Диск с использованием API Dog CEO.
+"""
+
+import logging
+from urllib.parse import urlsplit
 import pytest
 import requests
 from requests.exceptions import RequestException
-from urllib.parse import urlsplit  # Проблема 9: Используем urlsplit для безопасной работы с URL
-import logging
+
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 class YaUploader:
+    """
+    Класс для взаимодействия с Яндекс.Диском.
+    Позволяет создавать папки и загружать файлы по URL.
+    """
+
     def __init__(self, token):
+        """
+        Инициализирует объект YaUploader с токеном для доступа к API Яндекс.Диска.
+
+        :param token: OAuth-токен для аутентификации.
+        """
         self.token = token
         self.headers = {
             'Content-Type': 'application/json',
@@ -17,109 +32,130 @@ class YaUploader:
             'Authorization': f'OAuth {self.token}'
         }
 
-    # Проблема 4: Отсутствие возврата результата из метода
-    # Решение: Возвращаем результат выполнения метода (True/False), чтобы понимать, была ли папка создана.
     def create_folder(self, path):
+        """
+        Создает папку на Яндекс.Диске по указанному пути.
+
+        :param path: Путь для создания папки.
+        :return: Возвращает True, если папка успешно создана, иначе False.
+        """
         url_create = 'https://cloud-api.yandex.net/v1/disk/resources'
         try:
-            response = requests.put(f'{url_create}?path={path}', headers=self.headers)
+            response = requests.put(f'{url_create}?path={path}', headers=self.headers, timeout=10)
             response.raise_for_status()
-            logging.info(f"Folder '{path}' created successfully.")
-            return True  # Возвращаем True при успешном выполнении
+            logging.info("Folder '%s' created successfully.", path)
+            return True
         except RequestException as e:
-            logging.error(f"Error creating folder '{path}': {e}")
-            return False  # Возвращаем False при ошибке
+            logging.error("Error creating folder '%s': %s", path, e)
+            return False
 
-    # Проблема 3: Необработанные исключения в сетевых запросах
-    # Решение: Добавляем try/catch блок для обработки сетевых ошибок.
     def upload_photos_to_yd(self, path, url_file, name):
+        """
+        Загружает фото на Яндекс.Диск по URL.
+
+        :param path: Путь для сохранения файла.
+        :param url_file: URL файла для загрузки.
+        :param name: Имя файла.
+        """
         url = "https://cloud-api.yandex.net/v1/disk/resources/upload"
         params = {"path": f'/{path}/{name}', 'url': url_file, "overwrite": "true"}
         try:
-            resp = requests.post(url, headers=self.headers, params=params)
+            resp = requests.post(url, headers=self.headers, params=params, timeout=10)
             resp.raise_for_status()
-            logging.info(f"File '{name}' uploaded successfully.")
+            logging.info("File '%s' uploaded successfully.", name)
         except RequestException as e:
-            logging.error(f"Error uploading file '{name}': {e}")
+            logging.error("Error uploading file '%s': %s", name, e)
 
 
-# Проблема 2: Отсутствие обработки ошибок при HTTP-запросах
-# Решение: Добавляем обработку ошибок с использованием try/catch и выводим сообщения об ошибках через логирование.
 def get_sub_breeds(breed):
+    """
+    Получает подвиды породы собаки по ее имени.
+
+    :param breed: Имя породы.
+    :return: Список подвидов породы.
+    """
     try:
-        res = requests.get(f'https://dog.ceo/api/breed/{breed}/list')
+        res = requests.get(
+            f'https://dog.ceo/api/breed/{breed}/list',
+            timeout=10
+        )
         res.raise_for_status()
         return res.json().get('message', [])
     except RequestException as e:
-        logging.error(f"Error fetching sub-breeds for '{breed}': {e}")
+        logging.error("Error fetching sub-breeds for '%s': %s", breed, e)
         return []
 
 
-# Проблема 2: Нет обработки ошибок в сетевых запросах
-# Решение: Добавляем обработку исключений в get_urls.
-# Проблема 9: Неоптимальная работа с URL
-# Решение: Используем urlsplit из urllib.parse вместо split('/')
 def get_urls(breed, sub_breeds):
+    """
+    Получает URL изображений для породы и подвидов.
+
+    :param breed: Имя породы.
+    :param sub_breeds: Список подвидов породы.
+    :return: Список URL изображений.
+    """
     url_images = []
     try:
         if sub_breeds:
             for sub_breed in sub_breeds:
-                res = requests.get(f"https://dog.ceo/api/breed/{breed}/{sub_breed}/images/random")
+                res = requests.get(
+                    f"https://dog.ceo/api/breed/{breed}/{sub_breed}/images/random",
+                                   timeout=10
+                )
                 res.raise_for_status()
                 sub_breed_urls = res.json().get('message')
                 url_images.append(sub_breed_urls)
         else:
-            res = requests.get(f"https://dog.ceo/api/breed/{breed}/images/random")
+            res = requests.get(f"https://dog.ceo/api/breed/{breed}/images/random", timeout=10)
             res.raise_for_status()
             url_images.append(res.json().get('message'))
         return url_images
     except RequestException as e:
-        logging.error(f"Error fetching images for breed '{breed}': {e}")
+        logging.error("Error fetching images for breed '%s': %s", breed, e)
         return []
 
 
-# Проблема 6: Функция u не дожидается завершения операций
-# Решение: Нужно обеспечить, чтобы загрузка файлов на диск выполнялась только после получения всех URL-адресов.
-# Проблема 7: Жестко заданное имя папки
-# Решение: Сделать имя папки аргументом функции, чтобы оно было гибким.
 def u(breed, folder_name):
-    token = "AgAAAAAJtest_tokenxkUEdew"  # Проблема 7: Токен захардкожен, следует получать его из конфигурации или переменных окружения
+    """
+    Основная функция для загрузки изображений породы на Яндекс.Диск.
+
+    :param breed: Имя породы.
+    :param folder_name: Имя папки для сохранения изображений.
+    """
+    token = "AgAAAAAJtest_tokenxkUEdew"
     sub_breeds = get_sub_breeds(breed)
     urls = get_urls(breed, sub_breeds)
     yandex_client = YaUploader(token)
 
-    # Проблема 4: Не проверяется успешное создание папки
-    # Решение: Проверяем результат выполнения create_folder и прекращаем выполнение при ошибке
     if not yandex_client.create_folder(folder_name):
-        logging.error(f"Failed to create folder '{folder_name}'.")
+        logging.error("Failed to create folder '%s'.", folder_name)
         return
 
     for url in urls:
-        # Проблема 9: Неоптимальная работа с URL
-        # Решение: Используем urlsplit для безопасного извлечения имени файла
         parsed_url = urlsplit(url)
-        file_name = parsed_url.path.split('/')[-1]  # Извлекаем имя файла из URL
+        file_name = parsed_url.path.split('/')[-1]
 
         if yandex_client.upload_photos_to_yd(folder_name, url, file_name) is None:
-            logging.error(f"Failed to upload file '{file_name}'.")
+            logging.error("Failed to upload file '%s'.", file_name)
 
 
-# Проблема 5: Неправильная проверка в тесте загрузки
-# Решение: Убедиться, что результаты асинхронных операций правильно проверяются после их завершения
-@pytest.mark.parametrize('breed', ['doberman', 'bulldog', 'collie'])  # Проблема 10: Убираем случайный выбор породы
+@pytest.mark.parametrize('breed', ['doberman', 'bulldog', 'collie'])
 def test_proverka_upload_dog(breed):
+    """
+    Тест для проверки загрузки изображений породы на Яндекс.Диск.
+
+    :param breed: Имя породы.
+    """
     u(breed, "test_folder")
 
-    # Проблема 2: Отсутствие обработки ошибок
-    # Решение: Добавляем обработку ошибок при запросе состояния папки на Яндекс.Диск
     url_create = 'https://cloud-api.yandex.net/v1/disk/resources'
     headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Authorization': f'OAuth AgAAAAAJtest_tokenxkUEdew'
+        'Authorization': 'OAuth AgAAAAAJtest_tokenxkUEdew'
     }
     try:
-        response = requests.get(f'{url_create}?path=/test_folder', headers=headers)
+        response = requests.get(f'{url_create}?path=/test_folder', headers=headers, timeout=10)
         response.raise_for_status()
 
         assert response.json()['type'] == "dir"
@@ -135,4 +171,4 @@ def test_proverka_upload_dog(breed):
                 assert item['type'] == 'file'
                 assert item['name'].startswith(breed)
     except RequestException as e:
-        logging.error(f"Error fetching folder contents: {e}")
+        logging.error("Error fetching folder contents: %s", e)
